@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Đăng nhập quản trị – 15 Phút Giao Dịch</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  body{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .login{width:100%;max-width:420px;padding:30px;display:flex;flex-direction:column;gap:16px}
+</style>
+</head>
+<body>
+<main class="card login">
+  <a class="brand" href="index.html"><svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true"><rect width="36" height="36" rx="8" fill="#15171C"/><rect x="8" y="14" width="4" height="12" rx="1" fill="#3FBF85"/><rect x="16" y="9" width="4" height="15" rx="1" fill="#3FBF85"/><rect x="24" y="17" width="4" height="9" rx="1" fill="#F06B5D"/></svg><span class="brand-name">15 Phút Giao Dịch</span></a>
+  <div>
+    <h1 style="font-size:26px">Đăng nhập quản trị</h1>
+    <p class="muted" style="margin:6px 0 0">Dành cho quản trị viên để đăng bài và duyệt bình luận.</p>
+  </div>
+  <form id="login" style="display:flex;flex-direction:column;gap:14px">
+    <label class="field">Email<input class="input" type="email" id="email" autocomplete="username" required></label>
+    <label class="field">Mật khẩu<input class="input" type="password" id="password" autocomplete="current-password" required></label>
+    <button class="btn" type="submit" id="go">Đăng nhập</button>
+  </form>
+  <div id="msg" class="hidden" role="alert"></div>
+  <a href="index.html" class="muted" style="text-align:center;font-size:14px">← Về trang chủ</a>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script>
+(async function () {
+  const B = window.Blog, sb = B.sb;
+  const msg = document.getElementById('msg');
+  const show = (t, k) => { msg.className = 'notice ' + (k || 'err'); msg.textContent = t; };
+  if (!sb) { show(B.setupProblem, 'warn'); document.getElementById('go').disabled = true; return; }
+
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    const { data: ok } = await sb.rpc('is_admin');
+    if (ok) { location.replace('quan-tri.html'); return; }
+  }
+
+  document.getElementById('login').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = document.getElementById('go');
+    btn.disabled = true; show('Đang đăng nhập…', 'ok');
+    const { error } = await sb.auth.signInWithPassword({
+      email: document.getElementById('email').value.trim(),
+      password: document.getElementById('password').value
+    });
+    if (error) { btn.disabled = false; return show(B.errText(error)); }
+    const { data: ok, error: e2 } = await sb.rpc('is_admin');
+    if (e2 || !ok) {
+      await sb.auth.signOut();
+      btn.disabled = false;
+      return show('Tài khoản này chưa được cấp quyền quản trị. Hãy chạy Phần 2 trong file setup.sql với đúng email này.');
+    }
+    location.replace('quan-tri.html');
+  });
+})();
+</script>
+</body>
+</html>

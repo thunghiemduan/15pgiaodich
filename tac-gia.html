@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tác giả – 15 Phút Giao Dịch</title>
+<meta name="description" content="Giới thiệu tác giả blog nhận định chứng khoán 15 Phút Giao Dịch.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header id="site-header"></header>
+
+<section class="author-hero">
+  <div class="wrap" id="hero">
+    <div class="avatar">TG</div>
+    <div style="flex:1 1 380px;min-width:0">
+      <span class="label-up" style="color:#7FE0B2">TÁC GIẢ</span>
+      <h1>Đang tải…</h1>
+    </div>
+  </div>
+</section>
+
+<div class="author-cols">
+  <div class="bio">
+    <h2 style="font-size:29px;margin-bottom:16px">Về tôi</h2>
+    <div class="bio-text" id="bio"></div>
+    <h2 style="font-size:25px;margin:34px 0 14px">Bài viết mới</h2>
+    <div class="card linklist" id="latest"><div class="empty">Đang tải…</div></div>
+  </div>
+  <aside>
+    <div class="card side-box contact" id="contact">
+      <span class="label-up">LIÊN HỆ</span>
+    </div>
+  </aside>
+</div>
+
+<footer id="site-footer"></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script>
+(async function () {
+  const B = window.Blog, sb = B.sb, esc = B.esc;
+  B.renderHeader('author'); B.renderFooter();
+  const s = await B.getSettings();
+  document.getElementById('hero').innerHTML = `${B.avatarHtml(s)}
+    <div style="flex:1 1 380px;min-width:0">
+      <span class="label-up" style="color:#7FE0B2">TÁC GIẢ</span>
+      <h1>${esc(s.author_name || 'Tác giả')}</h1>
+      ${s.author_title ? `<p>${esc(s.author_title)}</p>` : ''}
+    </div>`;
+  if (s.author_name) document.title = s.author_name + ' – 15 Phút Giao Dịch';
+  document.getElementById('bio').textContent = s.long_bio || s.short_bio || 'Thông tin giới thiệu đang được cập nhật.';
+
+  const icon = {
+    phone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2"/></svg>',
+    mail: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>',
+    fb: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M15 3h-3a4 4 0 00-4 4v3H5v4h3v7h4v-7h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>'
+  };
+  let c = '<span class="label-up">LIÊN HỆ</span>';
+  if (s.phone) c += `<a href="tel:${esc(s.phone.replace(/[^\d+]/g, ''))}">${icon.phone}${esc(s.phone)}</a>`;
+  if (s.email) c += `<a href="mailto:${esc(s.email)}">${icon.mail}${esc(s.email)}</a>`;
+  if (s.facebook && /^https?:\/\//.test(s.facebook)) c += `<a href="${esc(s.facebook)}" target="_blank" rel="noopener">${icon.fb}Facebook</a>`;
+  if (!s.phone && !s.email && !s.facebook) c += '<span class="muted">Thông tin liên hệ đang được cập nhật.</span>';
+  document.getElementById('contact').innerHTML = c;
+
+  const box = document.getElementById('latest');
+  if (!sb) { box.innerHTML = '<div class="empty">Chưa kết nối dữ liệu.</div>'; return; }
+  const { data } = await sb.from('posts').select('id,title,trade_date,kind').eq('status', 'published').order('trade_date', { ascending: false }).order('published_at', { ascending: false }).limit(6);
+  box.innerHTML = (data && data.length) ? data.map(p => `<a href="bai-viet.html?id=${p.id}"><span style="font-weight:600">${esc(p.title)}</span><span class="meta">${B.fmtDate(p.trade_date)}</span></a>`).join('') : '<div class="empty">Chưa có bài viết.</div>';
+})();
+</script>
+</body>
+</html>

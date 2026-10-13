@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bài nhận định – 15 Phút Giao Dịch</title>
+<meta name="description" content="Bài nhận định thị trường chứng khoán trên 15 Phút Giao Dịch.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header id="site-header"></header>
+
+<main class="narrow">
+  <div id="article-root"><div class="card empty" style="margin-top:32px">Đang tải bài viết…</div></div>
+
+  <section class="comments hidden" id="comments" aria-label="Bình luận">
+    <h2 id="cmt-title">Bình luận</h2>
+    <form class="card cform" id="cform">
+      <label class="field">Tên hiển thị <small>Không bắt buộc. Để trống sẽ hiện là "Ẩn danh"</small>
+        <input class="input" id="c-name" maxlength="60" autocomplete="nickname">
+      </label>
+      <label class="field">Bình luận
+        <textarea class="input" id="c-content" rows="4" maxlength="2000" required placeholder="Chia sẻ ý kiến của bạn về nhận định này…"></textarea>
+      </label>
+      <label class="sr" aria-hidden="true">Website<input id="c-web" tabindex="-1" autocomplete="off"></label>
+      <div class="cform-foot">
+        <span class="meta">Không cần đăng nhập. Bình luận sẽ hiện sau khi được quản trị viên duyệt.</span>
+        <button class="btn" type="submit" id="c-send">Gửi bình luận</button>
+      </div>
+      <div id="c-msg" class="hidden" role="status"></div>
+    </form>
+    <div class="clist" id="clist"></div>
+  </section>
+</main>
+
+<footer id="site-footer"></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script>
+(function () {
+  const B = window.Blog, sb = B.sb, esc = B.esc;
+  const id = new URLSearchParams(location.search).get('id') || '';
+  const root = document.getElementById('article-root');
+  let post = null;
+
+  B.renderFooter();
+
+  function fail(msg) {
+    B.renderHeader('');
+    root.innerHTML = `<div class="card empty" style="margin-top:32px"><p style="margin:0 0 14px">${esc(msg)}</p><a class="btn ghost" href="index.html">← Về trang chủ</a></div>`;
+  }
+
+  function sortKey(p) { return p.trade_date + (p.kind === 'dau_phien' ? '0' : '1'); }
+
+  async function loadNeighbours() {
+    const d = B.parseDay(post.trade_date);
+    const from = new Date(d); from.setDate(from.getDate() - 45);
+    const to = new Date(d); to.setDate(to.getDate() + 45);
+    const f = x => x.getFullYear() + '-' + B.pad(x.getMonth() + 1) + '-' + B.pad(x.getDate());
+    const { data } = await sb.from('posts').select('id,kind,trade_date,title').eq('status', 'published').gte('trade_date', f(from)).lte('trade_date', f(to));
+    const list = (data || []).filter(p => p.id !== post.id).concat([post]).sort((a, b) => sortKey(a) < sortKey(b) ? -1 : sortKey(a) > sortKey(b) ? 1 : 0);
+    const i = list.findIndex(p => p.id === post.id);
+    const prev = list[i - 1], next = list[i + 1];
+    const box = document.getElementById('prevnext');
+    if (!prev && !next) { box.remove(); return; }
+    box.innerHTML = (prev ? `<a class="card" href="bai-viet.html?id=${prev.id}"><div class="meta">← Bài trước</div><div style="font-weight:600;margin-top:4px">${esc(prev.title)}</div></a>` : '<span style="flex:1 1 240px"></span>')
+      + (next ? `<a class="card next" href="bai-viet.html?id=${next.id}"><div class="meta">Bài sau →</div><div style="font-weight:600;margin-top:4px">${esc(next.title)}</div></a>` : '');
+  }
+
+  async function loadComments() {
+    const { data, error } = await sb.from('comments').select('id,name,content,reply,created_at').eq('post_id', post.id).eq('approved', true).order('created_at', { ascending: true });
+    const box = document.getElementById('clist');
+    if (error) { box.innerHTML = `<div class="notice err">${esc(B.errText(error))}</div>`; return; }
+    document.getElementById('cmt-title').textContent = 'Bình luận (' + data.length + ')';
+    const s = await B.getSettings();
+    box.innerHTML = data.length ? data.map(c => {
+      const name = (c.name || '').trim() || 'Ẩn danh';
+      return `<div class="cmt"><div class="cmt-av" aria-hidden="true">${esc(name === 'Ẩn danh' ? '?' : name[0].toUpperCase())}</div><div class="cmt-body">
+        <div style="display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline"><strong>${esc(name)}</strong><span class="meta">${B.fmtDateTime(c.created_at)}</span></div>
+        <p>${esc(c.content)}</p>
+        ${c.reply ? `<div class="reply"><div><strong>${esc(s.author_name || 'Tác giả')}</strong><span class="badge">Tác giả</span></div><p style="margin-top:6px">${esc(c.reply)}</p></div>` : ''}
+      </div></div>`;
+    }).join('') : '<p class="muted" style="margin:0">Chưa có bình luận nào. Hãy là người đầu tiên chia sẻ ý kiến.</p>';
+  }
+
+  async function load() {
+    if (!sb) return fail(B.setupProblem || 'Chưa kết nối dữ liệu.');
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return fail('Không tìm thấy bài viết.');
+    const { data, error } = await sb.from('posts').select('*').eq('id', id).maybeSingle();
+    if (error) return fail(B.errText(error));
+    if (!data) return fail('Bài viết không tồn tại hoặc chưa được đăng.');
+    post = data;
+    B.renderHeader(post.kind);
+    const s = await B.getSettings();
+    document.title = post.title + ' – 15 Phút Giao Dịch';
+    const desc = post.summary || B.plainText(post.content).slice(0, 160);
+    if (desc) document.querySelector('meta[name="description"]').setAttribute('content', desc);
+
+    const words = (B.plainText(post.content) + ' ' + (post.summary || '')).split(/\s+/).filter(Boolean).length;
+    const mins = Math.max(1, Math.round(words / 200));
+    const imgs = (post.images || []).map(B.imgUrl).filter(Boolean);
+    const hasLevels = post.support || post.resistance || post.trend;
+    root.innerHTML = `
+      ${post.status !== 'published' ? '<div class="notice warn" style="margin-top:24px">Đây là bản nháp – chỉ quản trị viên nhìn thấy. Người đọc chưa xem được bài này.</div>' : ''}
+      <nav class="crumbs" aria-label="Đường dẫn"><a href="index.html">Trang chủ</a> / <a href="index.html?loai=${post.kind}#bai-viet">${B.KIND_TITLE[post.kind]}</a> / ${B.fmtDate(post.trade_date)}</nav>
+      <article class="article">
+        <span class="tag ${post.kind}">${B.KIND[post.kind]}</span>
+        <h1>${esc(post.title)}</h1>
+        <div class="byline">
+          ${B.avatarHtml(s)}
+          <div class="byline-text"><a href="tac-gia.html" style="font-weight:600">${esc(s.author_name || 'Tác giả')}</a>
+            <div class="meta">${B.fmtDow(post.trade_date)}, ${B.fmtDate(post.trade_date)}${post.published_at ? ' · đăng lúc ' + B.fmtTime(post.published_at) : ''} · Đọc trong ${mins} phút</div></div>
+          <button class="btn ghost small" type="button" id="share">Chia sẻ</button>
+        </div>
+        ${post.summary ? `<p style="font-size:19px;line-height:1.7;color:var(--soft);margin:22px 0 0;font-weight:500">${esc(post.summary)}</p>` : ''}
+        ${imgs.length ? `<div class="gallery">${imgs.map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener" title="Bấm để xem ảnh lớn"><img src="${esc(u)}" alt="Ảnh ${i + 1} của bài nhận định ${esc(B.fmtDate(post.trade_date))}" loading="${i ? 'lazy' : 'eager'}"></a>`).join('')}</div>` : '<div style="height:22px"></div>'}
+        <div class="content">${B.renderContent(post.content)}</div>
+        ${hasLevels ? `<div class="card levels">
+          ${post.support ? `<div><div class="label-up">VÙNG HỖ TRỢ</div><b style="color:var(--green)">${esc(post.support)}</b></div>` : ''}
+          ${post.resistance ? `<div><div class="label-up">VÙNG KHÁNG CỰ</div><b style="color:var(--red)">${esc(post.resistance)}</b></div>` : ''}
+          ${post.trend ? `<div><div class="label-up">XU HƯỚNG</div><b>${esc(B.TREND[post.trend] || post.trend)}</b></div>` : ''}
+        </div>` : ''}
+        <p class="notice disclaimer">Lưu ý: Nhận định mang tính tham khảo, không phải khuyến nghị đầu tư.</p>
+        <div class="prevnext" id="prevnext"></div>
+      </article>`;
+
+    document.getElementById('share').onclick = async () => {
+      const data = { title: post.title, url: location.href };
+      try {
+        if (navigator.share) await navigator.share(data);
+        else { await navigator.clipboard.writeText(location.href); B.toast('Đã sao chép đường link bài viết.'); }
+      } catch (e) { /* người dùng hủy chia sẻ */ }
+    };
+
+    loadNeighbours();
+    if (post.status === 'published') {
+      document.getElementById('comments').classList.remove('hidden');
+      loadComments();
+    }
+  }
+
+  document.getElementById('cform').addEventListener('submit', async e => {
+    e.preventDefault();
+    const msg = document.getElementById('c-msg'), btn = document.getElementById('c-send');
+    const show = (text, kind) => { msg.className = 'notice ' + kind; msg.textContent = text; };
+    if (document.getElementById('c-web').value) return; // chặn máy tự động spam
+    const content = document.getElementById('c-content').value.trim();
+    const name = document.getElementById('c-name').value.trim();
+    if (!content) return show('Bạn chưa nhập nội dung bình luận.', 'err');
+    let last = 0;
+    try { last = Number(localStorage.getItem('cmt_last') || 0); } catch (err) { /* bỏ qua */ }
+    if (Date.now() - last < 30000) return show('Bạn vừa gửi bình luận. Vui lòng chờ khoảng 30 giây rồi gửi tiếp.', 'warn');
+    btn.disabled = true;
+    const { error } = await sb.from('comments').insert({ post_id: post.id, name: name || null, content });
+    btn.disabled = false;
+    if (error) return show(B.errText(error), 'err');
+    try { localStorage.setItem('cmt_last', String(Date.now())); } catch (err) { /* bỏ qua */ }
+    document.getElementById('c-content').value = '';
+    show('Cảm ơn bạn! Bình luận đã được gửi và sẽ hiện sau khi quản trị viên duyệt.', 'ok');
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>
